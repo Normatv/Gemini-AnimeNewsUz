@@ -12,7 +12,7 @@ bot = telebot.TeleBot(BOT_TOKEN)
 # Gemini-ni eng barqaror kutubxona orqali sozlaymiz
 try:
     genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel('gemini-pro')
+    model = genai.GenerativeModel('gemini-1.5-flash')
 except Exception as e:
     print(f"Gemini sozlashda xatolik: {e}")
     model = None
