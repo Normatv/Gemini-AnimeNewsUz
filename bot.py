@@ -2,6 +2,7 @@ import os
 import requests
 import telebot
 from google import genai
+from google.genai import types
 
 # Kalitlarni Render tizimidan o'qiymiz
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
@@ -9,11 +10,11 @@ GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
 bot = telebot.TeleBot(BOT_TOKEN)
 
-# Google-ning eng so'nggi standartiga ko'ra Client sozlaymiz
+# Google-ning eng so'nggi rasmiy standartida Client yaratamiz
 try:
     client = genai.Client(api_key=GEMINI_API_KEY)
 except Exception as e:
-    print(f"Gemini Client ulashda xatolik: {e}")
+    print(f"Gemini sozlashda xatolik: {e}")
     client = None
 
 @bot.message_handler(commands=['start'])
@@ -47,7 +48,7 @@ def send_anime_news(message):
                 episode_title = latest['episodes'][0]['title'] if latest['episodes'] else "Yangi qism"
                 full_title = f"{anime_name} - {episode_title}"
                 
-                # Eng so'nggi gemini-2.5-flash modeli orqali tarjima qilish
+                # Eng so'nggi va barqaror gemini-2.5-flash modelidan foydalanamiz
                 if client:
                     prompt = f"Ushbu anime yangiligini o'zbek tilida juda qiziqarli, qisqa va emojilar bilan tushuntirib ber: {full_title}"
                     response = client.models.generate_content(
