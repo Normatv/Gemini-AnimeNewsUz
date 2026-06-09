@@ -35,7 +35,7 @@ def start_command(message):
 
 @bot.message_handler(func=lambda message: message.text == "🎬 Yangilik olish")
 def send_anime_news(message):
-    bot.reply_to(message, "⏳ Eng so'nggi anime yangiligini qidiryapman va Gemini orqali tarjima qilyapman, kuting...")
+    bot.reply_to(message, "⏳ Eng so'nggi anime yangiligini qidiryapman, kuting...")
     
     try:
         url = "https://api.jikan.moe/v4/watch/episodes"
