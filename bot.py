@@ -1,9 +1,22 @@
-import random 
 import os
 import requests
 import telebot
 from google import genai
-from google.genai import types
+import random
+from threading import Thread
+from flask import Flask
+
+# Render port talab qilgani uchun kichkina soxta veb-server yaratamiz
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "Bot tirik va ishlayapti!"
+
+def run():
+    # Render avtomatik beradigan portni o'qiymiz, bo'lmasa 8080
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host='0.0.0.0', port=port)
 
 # Kalitlarni Render tizimidan o'qiymiz
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
@@ -11,7 +24,6 @@ GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
 bot = telebot.TeleBot(BOT_TOKEN)
 
-# Google-ning eng so'nggi rasmiy standartida Client yaratamiz
 try:
     client = genai.Client(api_key=GEMINI_API_KEY)
 except Exception as e:
@@ -27,15 +39,13 @@ def start_command(message):
     bot.send_message(
         chat_id, 
         f"Salom! Men Gemini bilan ishlaydigan Anime botman.\n\n"
-        f"Sizning Chat ID raqamingiz: `{chat_id}`\n\n"
-        f"Pastdagi 'Yangilik olish' tugmasini bossangiz, men hozirgina chiqqan eng oxirgi anime qismini tarjima qilib beraman!", 
-        parse_mode="Markdown",
+        f"Pastdagi 'Yangilik olish' tugmasini bossangiz, men sizga eng so'nggi anime yangiliklarini tasodifiy tartibda o'zbekcha qilib beraman!", 
         reply_markup=markup
     )
 
 @bot.message_handler(func=lambda message: message.text == "🎬 Yangilik olish")
 def send_anime_news(message):
-    bot.reply_to(message, "⏳ Eng so'nggi anime yangiligini qidiryapman, kuting...")
+    bot.reply_to(message, "⏳ Eng so'nggi anime yangiligini qidiryapman va Gemini orqali tarjima qilyapman, kuting...")
     
     try:
         url = "https://api.jikan.moe/v4/watch/episodes"
@@ -44,12 +54,12 @@ def send_anime_news(message):
         if res.status_code == 200:
             data = res.json()
             if data and 'data' in data and len(data['data']) > 0:
+                # Ro'yxatdan tasodifiy (random) bittasini tanlaymiz
                 latest = random.choice(data['data'])
                 anime_name = latest['entry']['title']
                 episode_title = latest['episodes'][0]['title'] if latest['episodes'] else "Yangi qism"
                 full_title = f"{anime_name} - {episode_title}"
                 
-                # Eng so'nggi va barqaror gemini-2.5-flash modelidan foydalanamiz
                 if client:
                     prompt = f"Ushbu anime yangiligini o'zbek tilida juda qiziqarli, qisqa va emojilar bilan tushuntirib ber: {full_title}"
                     response = client.models.generate_content(
@@ -70,5 +80,9 @@ def send_anime_news(message):
         bot.send_message(message.chat.id, f"⚠️ Xatolik yuz berdi: {str(e)}")
 
 if __name__ == "__main__":
+    # Veb-serverni alohida oqimda (thread) ishga tushiramiz, Render tinchlanishi uchun
+    server_thread = Thread(target=run)
+    server_thread.start()
+    
     print("Bot muvaffaqiyatli ishga tushdi!")
     bot.infinity_polling()
