@@ -1,3 +1,4 @@
+import random 
 import os
 import requests
 import telebot
@@ -43,7 +44,7 @@ def send_anime_news(message):
         if res.status_code == 200:
             data = res.json()
             if data and 'data' in data and len(data['data']) > 0:
-                latest = data['data'][0]
+                latest = random.choice(data['data'])
                 anime_name = latest['entry']['title']
                 episode_title = latest['episodes'][0]['title'] if latest['episodes'] else "Yangi qism"
                 full_title = f"{anime_name} - {episode_title}"
