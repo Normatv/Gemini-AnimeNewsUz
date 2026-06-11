@@ -1,90 +1,67 @@
-import os
 import requests
 import telebot
-from google import genai
 import random
-from threading import Thread
-from flask import Flask
 
-# Render tekin tarifda portni tekshirgani uchun kichkina soxta veb-server yaratamiz
-app = Flask('')
-
-@app.route('/')
-def home():
-    return "Bot tirik va ishlayapti!"
-
-def run():
-    # Render avtomatik beradigan portni o'qiymiz, topilmasa 8080
-    port = int(os.environ.get("PORT", 8080))
-    app.run(host='0.0.0.0', port=port)
-
-# ⚠️ KALITLARNI SHU YERGA TO'G'RIDAN-TO'G'RI QO'SHTIRNOQ ICHIGA YOZING:
-BOT_TOKEN = "8979366912:AAG9mFcie-ZgpTIEGLOwg3UiWGSItxuNE38"
-GEMINI_API_KEY = "AQ.Ab8RN6IajUIAILprzriwqPN-5rIHuCIt9zcqnz06kq0QKEuCKA"
-
+# ⚠️ BATINGIZ TOKENINI FAQAT SHU YERGA YOZING (Qo'shtirnoq ichiga)
+BOT_TOKEN = "BU_YERGA_TELEGRAM_BOT_TOKENINI_QOYING"
 bot = telebot.TeleBot(BOT_TOKEN)
-
-# Google-ning eng so'nggi rasmiy standartida Client yaratamiz
-try:
-    client = genai.Client(api_key=GEMINI_API_KEY)
-except Exception as e:
-    print(f"Gemini sozlashda xatolik: {e}")
-    client = None
 
 @bot.message_handler(commands=['start'])
 def start_command(message):
-    chat_id = message.chat.id
-    markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.add(telebot.types.KeyboardButton("🎬 Yangilik olish"))
-    
     bot.send_message(
-        chat_id, 
-        f"Salom! Men Gemini bilan ishlaydigan Anime botman.\n\n"
-        f"Pastdagi 'Yangilik olish' tugmasini bossangiz, men sizga eng so'nggi anime yangiliklarini tasodifiy tartibda o'zbekcha qilib beraman!", 
-        reply_markup=markup
+        message.chat.id,
+        "👋 Salom! Men ijtimoiy tarmoqlardan video va rasm yuklovchi botman.\n\n"
+        "Menga Instagram, TikTok, YouTube (Shorts) yoki Pinterest'dan havola (link) yuboring, men uni sizga yuklab beraman! 🚀"
     )
 
-@bot.message_handler(func=lambda message: message.text == "🎬 Yangilik olish")
-def send_anime_news(message):
-    bot.reply_to(message, "⏳ Eng so'nggi anime yangiligini qidiryapman va Gemini orqali tarjima qilyapman, kuting...")
-    
+@bot.message_handler(func=lambda message: message.text.startswith(('http://', 'https://')))
+def download_media(message):
+    url = message.text.strip()
+    status_msg = bot.reply_to(message, "⏳ Havola tekshirilmoqda va yuklanmoqda, kuting...")
+
+    # Universal va bepul yuklovchi API manzili (Cobalt API)
+    api_url = "https://api.cobalt.tools/api/json"
+    headers = {
+        "Accept": "application/json",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "url": url,
+        "vQuality": "720" # Videolar sifati (720p)
+    }
+
     try:
-        url = "https://api.jikan.moe/v4/watch/episodes"
-        res = requests.get(url, timeout=10)
+        response = requests.post(api_url, json=payload, headers=headers, timeout=30)
         
-        if res.status_code == 200:
-            data = res.json()
-            if data and 'data' in data and len(data['data']) > 0:
-                # Ro'yxat ichidan tasodifiy (random) bittasini tanlaymiz
-                latest = random.choice(data['data'])
-                anime_name = latest['entry']['title']
-                episode_title = latest['episodes'][0]['title'] if latest['episodes'] else "Yangi qism"
-                full_title = f"{anime_name} - {episode_title}"
+        if response.status_code == 200:
+            res_data = response.json()
+            
+            # 1-Holat: Agar bu bitta video yoki rasm bo'lsa
+            if "url" in res_data:
+                media_url = res_data["url"]
                 
-                # Eng so'nggi va barqaror gemini-2.5-flash modelidan foydalanamiz
-                if client:
-                    prompt = f"Ushbu anime yangiligini o'zbek tilida juda qiziqarli, qisqa va emojilar bilan tushuntirib ber: {full_title}"
-                    response = client.models.generate_content(
-                        model='gemini-2.5-flash',
-                        contents=prompt,
-                    )
-                    uzbek_news = response.text
-                else:
-                    uzbek_news = f"🎬 Yangi epizod chiqdi:\n📌 Anime: {anime_name}\n📺 Qism: {episode_title}"
-                
-                bot.send_message(message.chat.id, uzbek_news)
+                # Agar havola rasm bo'lsa (masalan Pinterest yoki rasm linki)
+                if "picker" in url or ".jpg" in media_url or ".png" in media_url:
+                    bot.send_photo(message.chat.id, media_url, caption="✨ Yuklab olindi!")
+                else: # Video bo'lsa (Instagram Reel, TikTok, Shorts)
+                    bot.send_video(message.chat.id, media_url, caption="🎬 Yuklab olindi!")
+                    
+            # 2-Holat: Agar Instagram karusel (bir nechta rasm/video) bo'lsa
+            elif "picker" in res_data:
+                for item in res_data["picker"]:
+                    bot.send_document(message.chat.id, item["url"])
             else:
-                bot.send_message(message.chat.id, "❌ Hozircha yangi ma'lumot topilmadi.")
+                bot.send_message(message.chat.id, "❌ Ushbu havoladan media topilmadi.")
+                
+            # "Kutilmoqda..." degan xabarni o'chirib tashlaymiz
+            bot.delete_message(message.chat.id, status_msg.message_id)
+            
         else:
-            bot.send_message(message.chat.id, "❌ Anime bazasidan ma'lumot olishda xatolik yuz berdi.")
+            bot.edit_message_text("⚠️ Yuklashda xatolik yuz berdi. Havolani tekshirib qayta yuboring.", message.chat.id, status_msg.message_id)
             
     except Exception as e:
-        bot.send_message(message.chat.id, f"⚠️ Xatolik yuz berdi: {str(e)}")
+        bot.edit_message_text(f"❌ Tizimda xatolik: {str(e)}", message.chat.id, status_msg.message_id)
 
 if __name__ == "__main__":
-    # Veb-serverni alohida oqimda (thread) ishga tushiramiz, Render tinchlanishi uchun
-    server_thread = Thread(target=run)
-    server_thread.start()
-    
-    print("Bot muvaffaqiyatli ishga tushdi!")
+    print("Bot muvaffaqiyatli ishga tushdi...")
     bot.infinity_polling()
