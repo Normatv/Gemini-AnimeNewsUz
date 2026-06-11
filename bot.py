@@ -1,32 +1,49 @@
+import requests
 import telebot
-import yt_dlp
-import os
 
+# ⚠️ BATINGIZ TOKENINI FAQAT SHU YERGA YOZING
 BOT_TOKEN = "8608901124:AAEVd3ijNRQw2rLvzyIFXp8NUj-T65G-Tzc"
 bot = telebot.TeleBot(BOT_TOKEN)
 
 @bot.message_handler(commands=['start'])
-def start(message):
-    bot.send_message(message.chat.id, "Salom! Men endi yanada kuchliroqman. Video havolasini yuboring!")
+def start_command(message):
+    bot.send_message(
+        message.chat.id,
+        "👋 Salom! Men ijtimoiy tarmoqlardan video yuklovchi tezyurar botman.\n\n"
+        "Menga Instagram, TikTok yoki YouTube va boshqa platformalardan havola yuboring! 🚀"
+    )
 
-@bot.message_handler(func=lambda message: message.text.startswith('http'))
-def download(message):
-    url = message.text.split('?')[0] # Havolani tozalash
-    msg = bot.reply_to(message, "⏳ Videoni yuklab olyapman, biroz kuting...")
+@bot.message_handler(func=lambda message: message.text.startswith(('http://', 'https://')))
+def download_media(message):
+    url = message.text.strip()
     
-    try:
-        ydl_opts = {
-            'format': 'best',
-            'outtmpl': 'video.mp4',
-            'quiet': True
-        }
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([url])
+    # Havolani tozalash
+    if "?" in url:
+        url = url.split("?")[0]
         
-        bot.send_video(message.chat.id, open('video.mp4', 'rb'))
-        bot.delete_message(message.chat.id, msg.message_id)
-        os.remove('video.mp4') # Yuklab bo'lgach faylni o'chirish
-    except Exception as e:
-        bot.edit_message_text(f"❌ Xatolik: {e}", message.chat.id, msg.message_id)
+    status_msg = bot.reply_to(message, "⚡️ Tezkor tizim ulanmoqda, kuting...")
 
-bot.infinity_polling()
+    # Yangi va juda tezkor universal yuklovchi API (Rapid API muqobili)
+    api_url = f"https://api.levdor.fr/download?url={url}"
+
+    try:
+        response = requests.get(api_url, timeout=20)
+        
+        if response.status_code == 200:
+            res_data = response.json()
+            
+            # Agar API muvaffaqiyatli video linkini qaytarsa
+            if "url" in res_data:
+                video_url = res_data["url"]
+                bot.send_video(message.chat.id, video_url, caption="🎬 Mana videongiz!")
+                bot.delete_message(message.chat.id, status_msg.message_id)
+            else:
+                bot.edit_message_text("⚠️ Videoni yuklab bo'lmadi. Tizim havolani tushunmadi.", message.chat.id, status_msg.message_id)
+        else:
+            bot.edit_message_text("⚠️ Tashqi server hozir band. Birozdan so'ng qayta urinib ko'ring.", message.chat.id, status_msg.message_id)
+            
+    except Exception as e:
+        bot.edit_message_text(f"❌ Tarmoq xatosi: {str(e)}", message.chat.id, status_msg.message_id)
+
+if __name__ == "__main__":
+    bot.infinity_polling()
