@@ -13,16 +13,31 @@ def start_command(message):
         "Menga havola (link) yuboring, men uni yuklab beraman! 🚀"
     )
 
+# Zaxira (Alternativ) API orqali yuklash funksiyasi
+def download_via_backup_api(url):
+    # Bu API Instagram, TikTok va YouTube uchun juda barqaror ishlaydi
+    backup_api = f"https://api.dreadful-dev.workers.dev/download?url={url}"
+    try:
+        res = requests.get(backup_api, timeout=30)
+        if res.status_code == 200:
+            data = res.json()
+            if data.get("status") == "success" and "url" in data:
+                return data["url"]
+    except Exception:
+        return None
+    return None
+
 @bot.message_handler(func=lambda message: message.text.startswith(('http://', 'https://')))
 def download_media(message):
     url = message.text.strip()
     
-    # Instagram/TikTok havolalarini tozalash (so'roq belgisi va undan keyingisini olib tashlash)
+    # Havolalarni tozalash
     if "?" in url:
         url = url.split("?")[0]
         
-    status_msg = bot.reply_to(message, "⏳ Havola tozalandi, yuklanmoqda...")
+    status_msg = bot.reply_to(message, "⏳ Havola tekshirilmoqda, yuklanyapti...")
 
+    # 1-URANISH: Asosiy Cobalt API
     api_url = "https://api.cobalt.tools/api/json"
     headers = {
         "Accept": "application/json",
@@ -34,31 +49,39 @@ def download_media(message):
     }
 
     try:
-        response = requests.post(api_url, json=payload, headers=headers, timeout=30)
+        response = requests.post(api_url, json=payload, headers=headers, timeout=20)
         
         if response.status_code == 200:
             res_data = response.json()
-            
             if "url" in res_data:
-                media_url = res_data["url"]
-                # Rasm yoki video ekanligini aniqlash
-                if ".jpg" in media_url or ".png" in media_url:
-                    bot.send_photo(message.chat.id, media_url, caption="✨ Yuklab olindi!")
-                else:
-                    bot.send_video(message.chat.id, media_url, caption="🎬 Yuklab olindi!")
+                bot.send_video(message.chat.id, res_data["url"], caption="🎬 Yuklab olindi! (Asosiy tizim)")
+                bot.delete_message(message.chat.id, status_msg.message_id)
+                return
             elif "picker" in res_data:
                 for item in res_data["picker"]:
                     bot.send_document(message.chat.id, item["url"])
-            else:
-                bot.send_message(message.chat.id, "❌ Ushbu havoladan media topilmadi.")
-                
+                bot.delete_message(message.chat.id, status_msg.message_id)
+                return
+
+        # Agar asosiy API xato bersa, avtomatik zaxira API'ga o'tadi:
+        bot.edit_message_text("🔄 Asosiy tizim band. Zaxira tizim ishga tushirildi, kuting...", message.chat.id, status_msg.message_id)
+        backup_url = download_via_backup_api(url)
+        
+        if backup_url:
+            bot.send_video(message.chat.id, backup_url, caption="🎬 Yuklab olindi! (Zaxira tizim)")
             bot.delete_message(message.chat.id, status_msg.message_id)
         else:
-            bot.edit_message_text("⚠️ API xatolik berdi. Havolani tekshiring.", message.chat.id, status_msg.message_id)
+            bot.edit_message_text("⚠️ Kechirasiz, har ikkala tizim ham havolani yuklay olmadi. Havola noto'g'ri yoki serverlar band.", message.chat.id, status_msg.message_id)
             
     except Exception as e:
-        bot.edit_message_text(f"❌ Tizim xatosi: {str(e)}", message.chat.id, status_msg.message_id)
+        # Xatolik bo'lsa ham zaxira API'ni tekshirib ko'radi
+        backup_url = download_via_backup_api(url)
+        if backup_url:
+            bot.send_video(message.chat.id, backup_url, caption="🎬 Yuklab olindi! (Zaxira tizim)")
+            bot.delete_message(message.chat.id, status_msg.message_id)
+        else:
+            bot.edit_message_text(f"❌ Tizim xatosi yuz berdi: {str(e)}", message.chat.id, status_msg.message_id)
 
 if __name__ == "__main__":
-    print("Bot ishlamoqda...")
+    print("Bot 2 ta API tizimi bilan ishga tushdi...")
     bot.infinity_polling()
