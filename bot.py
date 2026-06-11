@@ -3,7 +3,7 @@ import telebot
 import random
 
 # ⚠️ BATINGIZ TOKENINI FAQAT SHU YERGA YOZING (Qo'shtirnoq ichiga)
-BOT_TOKEN = "BU_YERGA_TELEGRAM_BOT_TOKENINI_QOYING"
+BOT_TOKEN = "8608901124:AAEVd3ijNRQw2rLvzyIFXp8NUj-T65G-Tzc"
 bot = telebot.TeleBot(BOT_TOKEN)
 
 @bot.message_handler(commands=['start'])
@@ -11,7 +11,7 @@ def start_command(message):
     bot.send_message(
         message.chat.id,
         "👋 Salom! Men ijtimoiy tarmoqlardan video va rasm yuklovchi botman.\n\n"
-        "Menga Instagram, TikTok, YouTube (Shorts) yoki Pinterest'dan havola (link) yuboring, men uni sizga yuklab beraman! 🚀"
+        "Menga Instagram, TikTok, YouTube, Pinterest yoki boshqa platforma havola (link) yuboring, men uni sizga yuklab beraman! 🚀"
     )
 
 @bot.message_handler(func=lambda message: message.text.startswith(('http://', 'https://')))
