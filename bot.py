@@ -23,22 +23,35 @@ def download_media(message):
         
     status_msg = bot.reply_to(message, "⚡️ Tezkor tizim ulanmoqda, kuting...")
 
-    # Yangi va juda tezkor universal yuklovchi API (Rapid API muqobili)
-    api_url = f"https://api.levdor.fr/download?url={url}"
+    # Dunyodagi eng barqaror va ochiq yuklovchi API'lardan biri
+    api_url = "https://api.v03.api-toxic.biz.id/api/downloader/universal"
+    params = {
+        "url": url
+    }
 
     try:
-        response = requests.get(api_url, timeout=20)
+        response = requests.get(api_url, params=params, timeout=25)
         
         if response.status_code == 200:
             res_data = response.json()
             
-            # Agar API muvaffaqiyatli video linkini qaytarsa
-            if "url" in res_data:
-                video_url = res_data["url"]
-                bot.send_video(message.chat.id, video_url, caption="🎬 Mana videongiz!")
-                bot.delete_message(message.chat.id, status_msg.message_id)
+            # API muvaffaqiyatli ishlasa va natija qaytarsa
+            if res_data.get("status") == True and "result" in res_data:
+                result = res_data["result"]
+                
+                # Agar video bo'lsa
+                if "url" in result:
+                    video_url = result["url"]
+                    bot.send_video(message.chat.id, video_url, caption="🎬 Mana videongiz!")
+                    bot.delete_message(message.chat.id, status_msg.message_id)
+                # Ba'zi variantlarda "hd" yoki "mp4" formatda keladi
+                elif "hd" in result:
+                    bot.send_video(message.chat.id, result["hd"], caption="🎬 Mana videongiz (HD)!")
+                    bot.delete_message(message.chat.id, status_msg.message_id)
+                else:
+                    bot.edit_message_text("⚠️ Videoni yuklab bo'lmadi. Tizim havolani tushunmadi.", message.chat.id, status_msg.message_id)
             else:
-                bot.edit_message_text("⚠️ Videoni yuklab bo'lmadi. Tizim havolani tushunmadi.", message.chat.id, status_msg.message_id)
+                bot.edit_message_text("⚠️ Havola tekshirildi, lekin undan video topilmadi.", message.chat.id, status_msg.message_id)
         else:
             bot.edit_message_text("⚠️ Tashqi server hozir band. Birozdan so'ng qayta urinib ko'ring.", message.chat.id, status_msg.message_id)
             
